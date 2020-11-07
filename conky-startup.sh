@@ -1,5 +1,24 @@
 #!/bin/bash
 
+DC=#000000
+C1=#68A1DF
+C2=00ff00
+C3=#FBFFFE
+
+default_theme() {
+    DC=#000000
+    C1=#68A1DF
+    C2=00ff00
+    C3=#FBFFFE
+}
+
+rog_theme() {
+    DC=#000000
+    C1=#68A1DF
+    C2=ff0000
+    C3=#FBFFFE
+}
+
 cpu_list() {
     processor_count=$(expr $(cat /proc/cpuinfo | grep processor | wc -l) - 1)
     for CPUID1 in $(seq 0 $processor_count)
@@ -12,6 +31,23 @@ cpu_list() {
     done
 }
 
+mount_list() {
+	for MNT in $(df -h |grep -v -E 'loop|udev|tmpfs|boot' | sed -n '1!p' | cut -d '%' -f 2| tr -d ' ' | sort)
+	do
+		if [[ $MNT == "/" ]]; then
+			NAME="root"
+		else
+			NAME=$(echo $MNT | rev | cut -d '/' -f1 | rev)
+		fi
+		echo "\${voffset 10}\${color1}${NAME^} \${goto 120}\${color2}\${fs_bar 20 ${MNT}}"
+		echo "\${goto 120}\${color1}Used: \${color3}\${fs_used ${MNT}}\${color1}\${alignr}Free: \${color3}\${fs_free ${MNT}}"
+	done
+}
+
+# Set the theme
+rog_theme
+
+# Run conky on all displays
 DISPLAY_TOTAL=$(expr $(xrandr | grep " connected" | wc -l) - 1)
 for display in $(seq 0 $DISPLAY_TOTAL)
 do
@@ -78,10 +114,10 @@ conky.config = {
 
 	--Colours
 
-	default_color = '#000000',  				-- default color and border color
-	color1 = '#68A1DF', 						-- title_color
-    color2 = '00ff00',
-	color3 = '#FBFFFE',						    -- text color
+	default_color = '$DC',  				-- default color and border color
+	color1 = '$C1', 					-- title_color
+        color2 = '$C2',
+	color3 = '$C3',				        -- text color
 };
 
 
@@ -108,7 +144,7 @@ $(cpu_list)
 #TEMPS
 #------------+
 \${voffset 10}\${color1}\${font :size=14:bold}TEMPS \${hr 2}\${font}
-\${voffset 10}\${color1}CPU:  \${color3}\${execi 5 sensors | grep Package | cut -c 17-20}°C\${goto 300}\${color1}GPU:  \${color3}\${nvidia temp}°C\${alignr}\${color1}NVME:  \${color3}\${execi 5 smartctl -A /dev/nvme0 | awk 'FNR==7 {print \$2}' }°C
+\${voffset 10}\${color1}CPU:  \${color3}\${execi 5 sensors | grep Package | cut -c 17-20}°C\${goto 300}\${color1}GPU:  \${color3}\${nvidia temp}°C\${alignr}\${color1}NVME:  \${color3}\${execi 5 sudo smartctl -A /dev/nvme0 | awk 'FNR==7 {print \$2}' }°C
 #------------+
 # PROCESSES
 #------------+
@@ -146,11 +182,8 @@ $(cpu_list)
 #------------+
 \${voffset 10}\${color1}\${font :size=14:bold}DISK \${hr 2}\${font}
 # NVME
-\${voffset 10}\${color1}NVME \${stippled_hr 3 3}
-\${voffset 10}\${color1}Root \${goto 120}\${color2}\${fs_bar 20 /}
-\${goto 120}\${color1}Used: \${color3}\${fs_used /}\${color1}\${alignr}Free: \${color3}\${fs_free /}
-\${voffset 10}\${color1}Home \${goto 120}\${color2}\${fs_bar 20 /home}
-\${goto 120}\${color1}Used: \${color3}\${fs_used /home}\${color1}\${alignr}Free: \${color3}\${fs_free /home}
+#\${voffset 10}\${color1}NVME \${stippled_hr 3 3}
+$(mount_list)
 \${voffset 20}\${color1}Read: \${color3}\${diskio_read nvme0n1}\${goto 340}\${color1}Write: \${color3}\${diskio_write nvme0n1}
 \${color2}\${diskiograph_read nvme0n1 40,270} \${alignr}\${diskiograph_write nvme0n1 40,270}
 #------------+
