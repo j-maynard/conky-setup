@@ -1,22 +1,44 @@
 #!/bin/bash
+STARTPWD=$(pwd)
 
+SCRIPT=`realpath -s $0`
+SCRIPTPATH=`dirname $SCRIPT`
+
+# Define colors and styles
+normal="\033[0m"
+bold="\033[1m"
+green="\e[32m"
+red="\e[31m"
+yellow="\e[93m"
+
+# Define Theme Colors
 DC=#000000
 C1=#68A1DF
 C2=00ff00
 C3=#FBFFFE
 
-default_theme() {
-    DC=#000000
-    C1=#68A1DF
-    C2=00ff00
-    C3=#FBFFFE
+usage() {
+    echo -e "Usage:"
+    echo -e "  ${bold}${red}-a  --rog${normal}                    Set the theme to ROG"
+    echo -e "  ${bold}${red}-r  --razer${normal}                  Set the theme to Razer"
+    echo -e "  ${bold}${red}-o  --output [File]${normal}          Saves the conky config to a file"
+    echo -e "  ${bold}${red}-p  --print${normal}                  Prints the conky config to the console"
+    echo -e "  ${bold}${red}-V  --verbose${normal}                Shows command output for debugging"
+    echo -e "  ${bold}${red}-v  --version${normal}                Shows version details"
+    echo -e "  ${bold}${red}-h  --help${normal}                   Shows this usage message"
 }
 
-rog_theme() {
-    DC=#000000
-    C1=#68A1DF
-    C2=ff0000
-    C3=#FBFFFE
+version() {
+    echo "Shared Setup Script Version 0.5"
+    echo "(c) Jamie Maynard 2020"
+}
+
+theme_processor() {
+    theme=$1
+    DC=$(echo $theme | jq -r '.default_color')
+    C1=$(echo $theme | jq -r '.color1')
+    C2=$(echo $theme | jq -r '.color2')
+    C3=$(echo $theme | jq -r '.color3')
 }
 
 cpu_list() {
@@ -44,14 +66,9 @@ mount_list() {
 	done
 }
 
-# Set the theme
-rog_theme
-
-# Run conky on all displays
-DISPLAY_TOTAL=$(expr $(xrandr | grep " connected" | wc -l) - 1)
-for display in $(seq 0 $DISPLAY_TOTAL)
-do
-    cat << EOF | conky -c -
+config_file() {
+	DISPLAY=$1
+    cat << EOF
 --[[
 #=================================================
 # Author  : Zvonimir Kucis
@@ -75,8 +92,8 @@ conky.config = {
 
 	--Placement
 
-    alignment = 'top_right',
-    xinerama_head = ${display},
+	alignment = 'top_right',
+	xinerama_head = ${DISPLAY},
 	gap_x = 10,
 	gap_y = 45,
 	minimum_height = 1300,
@@ -104,10 +121,9 @@ conky.config = {
 	--Windows
 
 	own_window = true,
-    own_window_class = 'Conky',
-    own_window_type = 'normal',
-    own_window_hints = 'undecorated,below,skip_taskbar,sticky,skip_pager',
-
+	own_window_class = 'Conky',
+	own_window_type = 'normal',
+	own_window_hints = 'undecorated,below,skip_taskbar,sticky,skip_pager',
 	own_window_argb_value = 0,
 	own_window_argb_visual = true,
 	
@@ -116,7 +132,7 @@ conky.config = {
 
 	default_color = '$DC',  				-- default color and border color
 	color1 = '$C1', 					-- title_color
-        color2 = '$C2',
+	color2 = '$C2',
 	color3 = '$C3',				        -- text color
 };
 
@@ -195,5 +211,88 @@ $(mount_list)
 #------------+
 ]]
 EOF
+}
+
+function display_conkyrc() {
+	exec > /dev/tty
+	config_file 1
+}
+
+function save_conkyrc() {
+	config_file 1 > $OUTFILE
+}
+
+function run_conky() {
+	if pgrep conky > /dev/null; then
+		killall conky
+	fi
+	DISPLAY_TOTAL=$(expr $(xrandr | grep " connected" | wc -l) - 1)
+	for display in $(seq 0 $DISPLAY_TOTAL)
+	do
+		config_file $display | conky $conky_quiet -c -
+	done
+}
+
+VERBOSE=false
+THEME=default
+ACTION=run
+OUTFILE="/tmp/conkyrc.out"
+
+# Process commandline arguments
+while [ "$1" != "" ]; do
+    case $1 in
+		-p | --print)					ACTION=print
+										;;
+		-o | --output)					shift
+										ACTION=output
+										OUTFILE=$1
+										;;
+		-r | --razer)					THEME=razer
+										;;
+		-a | --rog)						THEME=rog
+										;;
+		-j | --theme-json)				shift
+										THEME=custom
+										CUSTOM_JSON=$1
+										;;
+        -V | --verbose)             	VERBOSE=true
+                                        VARG="-V"
+                                        ;;
+        -v | --version)             	version
+                                        exit
+                                        ;;
+        -h | --help)                	usage
+                                        exit 0
+                                        ;;
+        * )                             echo -e "Unknown option $1...\n"
+                                        usage
+                                        exit 1
+    esac
+    shift
 done
 
+# Silence output
+if [[ $VERBOSE == "false" ]]; then
+    conky_quiet="-q"
+    exec  2>&1 > /dev/null 
+fi
+
+case $THEME in
+	rog)		theme_processor '{"default_color": "#000000","color1": "#68A1DF","color2": "#ff0000","color3": "#FBFFFE"}'
+				;;
+	razer)		theme_processor '{"default_color": "#000000","color1": "#68A1DF","color2": "#00ff00","color3": "#FBFFFE"}'
+				;;
+	custom)		theme_processor "$CUSTOM_JSON"
+				;;
+	*)			theme_processor '{"default_color": "#000000","color1": "#68A1DF","color2": "#00ff00","color3": "#FBFFFE"}'
+				;;
+esac
+
+case $ACTION in
+	print)		display_conkyrc
+				;;
+	output)		save_conkyrc
+				;;
+	run)		run_conky
+				;;
+esac
