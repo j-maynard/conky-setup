@@ -43,12 +43,14 @@ theme_processor() {
 
 cpu_list() {
     processor_count=$(expr $(cat /proc/cpuinfo | grep processor | wc -l) - 1)
+	OFFSET="10"
     for CPUID1 in $(seq 0 $processor_count)
     do
         if [[ $(expr $CPUID1 % 2) == 0 ]]; then
             CPUID2=$(expr $CPUID1 + 1)
-            CPU_LINE="\${voffset 2}\${color1}$(printf "%02d" $(expr $CPUID1 + 1))  \${color3}\${cpu cpu$CPUID1}%\${goto 150}\${color2}\${cpubar cpu$CPUID1 24, 180}\${goto 360}\${color1}$(printf "%02d" $(expr $CPUID2 + 1))  \${color3}\${cpu cpu$CPUID2}%  \${color2}\${alignr}\${cpubar cpu$CPUID2 24, 180}"
+            CPU_LINE="\${voffset $OFFSET}\${color1}$(printf "%02d" $(expr $CPUID1 + 1))  |  \${color3}\${cpu cpu$CPUID1}%\${goto 150}\${color2}\${cpubar cpu$CPUID1 20, 180}\${goto 360}\${color1}$(printf "%02d" $(expr $CPUID2 + 1))  |  \${color3}\${cpu cpu$CPUID2}%  \${color2}\${alignr}\${cpubar cpu$CPUID2 20, 180}"
             echo $CPU_LINE
+			OFFSET="5"
         fi
     done
 }
@@ -61,8 +63,8 @@ mount_list() {
 		else
 			NAME=$(echo $MNT | rev | cut -d '/' -f1 | rev)
 		fi
-		echo "\${voffset 10}\${color1}${NAME^} \${goto 120}\${color2}\${fs_bar 20 ${MNT}}"
-		echo "\${goto 120}\${color1}Used: \${color3}\${fs_used ${MNT}}\${color1}\${alignr}Free: \${color3}\${fs_free ${MNT}}"
+		echo "\${voffset 10}\${color1}${NAME^} \${goto 180}\${color2}\${fs_bar 20 ${MNT}}"
+		echo "\${goto 180}\${color1}Used: \${color3}\${fs_used ${MNT}}\${color1}\${alignr}Free: \${color3}\${fs_free ${MNT}}"
 	done
 }
 
